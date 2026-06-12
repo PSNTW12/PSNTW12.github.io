@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSC - PlayStation Computer</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background-color: #000; color: #fff; }
+
+        /* STARTUP SCREEN */
+        #startup-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle, #0a1128 0%, #000411 100%); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.4s ease-out; cursor: pointer; }
+        .ps-logo-img { height: 120px; object-fit: contain; margin-bottom: 30px; opacity: 0; animation: fadeIn 1s forwards 0.2s; filter: drop-shadow(0 0 20px rgba(255,255,255,0.2)); }
+        .partner-logos { display: flex; gap: 30px; align-items: center; margin-bottom: 40px; opacity: 0; animation: fadeIn 1s forwards 0.6s; }
+        .logo-item { font-weight: bold; font-size: 1.1rem; letter-spacing: 2px; color: #a0a0a0; }
+        .rammer-txt { color: #ff4b2b; } .google-txt { color: #4285F4; }
+        .loading-container { width: 300px; height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 10px; overflow: hidden; opacity: 0; animation: fadeIn 0.5s forwards 1s; }
+        .loading-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #0072ce, #00f0ff); box-shadow: 0 0 10px #00f0ff; transition: width 0.1s linear; }
+        .skip-hint { margin-top: 15px; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); letter-spacing: 1px; }
+
+        /* OS DESKTOP */
+        #os-container { width: 100%; height: 100%; background: #0f1423 url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop') center/cover no-repeat; display: none; flex-direction: column; justify-content: space-between; position: relative; opacity: 0; transition: opacity 0.6s ease-in; }
+        .ps5-dashboard { padding: 60px 80px; flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-start; }
+        .os-header { font-size: 1.6rem; font-weight: 600; margin-bottom: 30px; letter-spacing: 1px; text-shadow: 0 2px 4px rgba(0,0,0,0.6); }
+        .apps-grid { display: flex; gap: 25px; overflow-x: auto; padding-bottom: 20px; flex-wrap: wrap; }
+        
+        .app-card { width: 160px; height: 160px; background: rgba(255, 255, 255, 0.05); border: 2px solid transparent; border-radius: 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; backdrop-filter: blur(10px); transition: transform 0.2s, border 0.2s, background 0.2s; position: relative; }
+        .app-card:hover { transform: translateY(-5px) scale(1.02); border-color: #00f0ff; background: rgba(255, 255, 255, 0.15); box-shadow: 0 10px 20px rgba(0, 240, 255, 0.2); }
+        .app-icon { width: 60px; height: 60px; border-radius: 14px; margin-bottom: 12px; display: flex; justify-content: center; align-items: center; font-size: 2rem; color: #fff; text-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+        .app-name { font-size: 0.9rem; font-weight: 500; text-align: center; }
+        
+        .pin-btn { position: absolute; top: 10px; right: 10px; font-size: 1.1rem; opacity: 0; background: rgba(0,0,0,0.5); border-radius: 50%; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; transition: opacity 0.2s, color 0.2s; color: rgba(255,255,255,0.4); z-index: 10; }
+        .app-card:hover .pin-btn { opacity: 1; }
+        .pin-btn:hover { color: #fff; transform: scale(1.1); }
+        .pin-btn.pinned { opacity: 1; color: #00ffcc; }
+
+        /* SHELF */
+        .chrome-shelf { height: 56px; background: rgba(15, 15, 20, 0.9); backdrop-filter: blur(20px); border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; padding: 0 20px; z-index: 100; }
+        .shelf-left { display: flex; align-items: center; width: 200px; }
+        .launcher-btn { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.1); border: none; cursor: pointer; display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; }
+        .shelf-apps { display: flex; gap: 15px; justify-content: center; flex-grow: 1; }
+        .shelf-icon { width: 40px; height: 40px; border-radius: 50%; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; position: relative; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        .shelf-icon:hover { transform: translateY(-4px); box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .shelf-icon.active::after { content: ''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); width: 6px; height: 6px; background: #fff; border-radius: 50%; }
+        .shelf-right { background: rgba(255,255,255,0.08); padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; display: flex; gap: 10px; align-items: center; width: auto; justify-content: flex-end; }
+
+        /* WINDOW SYSTEM */
+        .window-overlay { position: fixed; top: 40px; left: 80px; right: 80px; bottom: 85px; background: #111215; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.12); display: flex; flex-direction: column; overflow: hidden; z-index: 500; transform: scale(0.96); opacity: 0; pointer-events: none; transition: transform 0.2s ease, opacity 0.2s ease, top 0.3s, left 0.3s, right 0.3s, bottom 0.3s, border-radius 0.3s; }
+        .window-overlay.active { transform: scale(1); opacity: 1; pointer-events: auto; }
+        
+        /* FULLSCREEN MODIFIER */
+        .window-overlay.fullscreen { top: 0; left: 0; right: 0; bottom: 0; border-radius: 0; border: none; }
+
+        .window-header { height: 45px; background: #0b0b0d; display: flex; justify-content: space-between; align-items: center; padding: 0 15px; user-select: none; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .window-title { font-size: 0.9rem; font-weight: 500; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+        .window-controls { display: flex; gap: 8px; }
+        .win-btn { width: 30px; height: 30px; border-radius: 6px; border: none; background: transparent; color: #aaa; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; transition: background 0.1s, color 0.1s; }
+        .win-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .win-close:hover { background: #ff4a4a; color: #fff; }
+
+        .window-body { flex-grow: 1; position: relative; background: #111215; overflow: hidden; display: flex; }
+        .window-iframe { width: 100%; height: 100%; border: none; background: #fff; flex-grow: 1; }
+
+        /* INTERNAL APPS (Store & Settings) */
+        .internal-app { width: 100%; height: 100%; padding: 30px; overflow-y: auto; display: none; flex-direction: column; }
+        .internal-app.active { display: flex; }
+        .app-title-lg { font-size: 2rem; font-weight: 600; margin-bottom: 25px; }
+        
+        /* Store UI */
+        .store-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .store-item { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; border: 1px solid rgba(255,255,255,0.05); }
+        .store-icon { width: 50px; height: 50px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; }
+        .store-info { flex-grow: 1; }
+        .store-name { font-weight: 600; font-size: 1.1rem; margin-bottom: 4px; }
+        .dl-btn { background: #0072ce; color: #fff; border: none; padding: 6px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; transition: background 0.2s; font-size: 0.85rem; }
+        .dl-btn:hover { background: #008bf5; }
+        .dl-btn:disabled { background: #333; color: #888; cursor: default; }
+
+        /* Settings UI */
+        .settings-section { margin-bottom: 35px; background: rgba(255,255,255,0.03); padding: 20px; border-radius: 12px; }
+        .settings-header { font-size: 1.2rem; font-weight: 600; margin-bottom: 15px; color: #00f0ff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; }
+        .settings-stat { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .settings-stat:last-child { border: none; }
+        .list-chip { display: inline-block; background: rgba(255,255,255,0.1); padding: 5px 12px; border-radius: 15px; font-size: 0.85rem; margin: 4px; }
+
+        @keyframes fadeIn { to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div id="startup-screen" onclick="forceBoot()">
+        <img src="https://th.bing.com/th/id/OIP.ODjZ8DlokxUxpiEv_rXtmgHaEK?w=327&h=184&c=7&r=0&o=7&dpr=1.5&pid=1.7&rm=3" alt="PSC Logo" class="ps-logo-img">
+        <div class="partner-logos">
+            <span class="logo-item google-txt">Google</span>
+            <span class="logo-item" style="color: #666;">×</span>
+            <span class="logo-item rammer-txt">RammerHead</span>
+        </div>
+        <div class="loading-container"><div class="loading-bar" id="progress-bar"></div></div>
+        <div class="skip-hint">Click anywhere to skip boot sequence</div>
+    </div>
+
+    <div id="os-container">
+        <div class="ps5-dashboard">
+            <div class="os-header">PSC Dashboard</div>
+            <div class="apps-grid" id="desktop-grid">
+                </div>
+        </div>
+
+        <div class="chrome-shelf">
+            <div class="shelf-left"><button class="launcher-btn">⦾</button></div>
+            <div class="shelf-apps" id="shelf-container">
+                </div>
+            <div class="shelf-right">
+                <span id="controller-status" style="color: #ffaa00;">🎮 KBM Active</span>
+                <span>|</span>
+                <span id="os-clock">--:--</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="system-window" class="window-overlay">
+        <div class="window-header">
+            <div class="window-title" id="win-title">App</div>
+            <div class="window-controls">
+                <button class="win-btn" title="Minimize" onclick="minimizeWindow()">−</button>
+                <button class="win-btn" title="Fullscreen" onclick="toggleFullscreen()">◻</button>
+                <button class="win-btn win-close" title="Close" onclick="closeWindow()">×</button>
+            </div>
+        </div>
+        <div class="window-body">
+            <iframe id="app-frame" class="window-iframe" src=""></iframe>
+            
+            <div id="app-store" class="internal-app">
+                <div class="app-title-lg">PlayStation Store</div>
+                <div class="store-grid" id="store-grid"></div>
+            </div>
+
+            <div id="app-settings" class="internal-app">
+                <div class="app-title-lg">System Settings</div>
+                
+                <div class="settings-section">
+                    <div class="settings-header">Network & Session</div>
+                    <div class="settings-stat"><span>Session Data Usage</span> <strong id="set-data">0 MB</strong></div>
+                    <div class="settings-stat"><span>Party Room Time</span> <strong id="set-party-time">Not active</strong></div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-header">Installed Applications</div>
+                    <div id="set-installed"></div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-header">Uninstalled Store Apps</div>
+                    <div id="set-uninstalled"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- OS STATE ENGINE ---
+        const systemApps = [
+            { id: 'browser', name: 'Rammer Browser', url: 'https://browser.rammerhead.org', icon: '🌐', bg: 'linear-gradient(135deg, #ff416c, #ff4b2b)', type: 'web' },
+            { id: 'party', name: 'Party Room', url: 'https://meet.jit.si/PSC-Party-Zone-Room', icon: '🎉', bg: 'linear-gradient(135deg, #0084ff, #00c6ff)', type: 'web' },
+            { id: 'store', name: 'PlayStation Store', icon: '🛍️', bg: 'linear-gradient(135deg, #00439c, #0072ce)', type: 'internal' },
+            { id: 'settings', name: 'Settings', icon: '⚙️', bg: 'linear-gradient(135deg, #333, #555)', type: 'internal' }
+        ];
+
+        const storeCatalog = [
+            { id: 'roblox', name: 'Roblox', url: 'https://web.cloudmoonapp.com/game/com.roblox.client/?from=list', icon: '🟥', bg: '#111', type: 'web' },
+            { id: 'minecraft', name: 'Minecraft', url: 'https://web.cloudmoonapp.com/game/com.mojang.minecraftedu/?from=list', icon: '🟩', bg: '#5b8731', type: 'web' },
+            { id: 'amongus', name: 'Among Us', url: 'https://web.cloudmoonapp.com/game/com.innersloth.spacemafia/?from=list', icon: '🚀', bg: '#c51111', type: 'web' },
+            { id: 'gd', name: 'Geometry Dash Lite', url: 'https://web.cloudmoonapp.com/game/comrobtopx.geometryjumplite/?from=lite', icon: '🧊', bg: '#00ff00', type: 'web' },
+            { id: 'melon', name: 'Melon Sandbox', url: 'https://web.cloudmoonapp.com/game/com.studio27.MelonPlayground/?from=list', icon: '🍉', bg: '#ff4444', type: 'web' },
+            { id: 'rl', name: 'Rocket League', url: 'https://web.cloudmoonapp.com/game/com.Psyonix.RL2D/?from=list', icon: '🚗', bg: '#0055ff', type: 'web' },
+            { id: 'fallguys', name: 'Fall Guys', url: 'https://web.cloudmoonapp.com/game/com.Mediatonic.FallGuys_client/?from=list', icon: '👑', bg: '#ff66b2', type: 'web' },
+            { id: 'candy', name: 'Candy Crush', url: 'https://web.cloudmoonapp.com/game/com.king.candycrushsaga/?from=list', icon: '🍬', bg: '#ffaa00', type: 'web' },
+            { id: 'fortnite', name: 'Fortnite', url: 'https://web.cloudmoonapp.com/game/com.epicgames.fortnite/?from=list', icon: '🪂', bg: '#9900ff', type: 'web' }
+        ];
+
+        let installedApps = [...systemApps];
+        let pinnedAppIds = ['browser', 'store', 'settings']; 
+        let activeAppId = null;
+        
+        // Background Tracking Trackers
+        let partyStartTime = null;
+        let dataUsageMB = 45; // Base boot usage
+
+        // --- RENDER ENGINE ---
+        function renderDesktop() {
+            const grid = document.getElementById('desktop-grid');
+            grid.innerHTML = '';
+            installedApps.forEach(app => {
+                const isPinned = pinnedAppIds.includes(app.id);
+                grid.innerHTML += `
+                    <div class="app-card" onclick="openApp('${app.id}')">
+                        <div class="pin-btn ${isPinned ? 'pinned' : ''}" title="Pin to Shelf" onclick="event.stopPropagation(); togglePin('${app.id}')">📌</div>
+                        <div class="app-icon" style="background: ${app.bg}">${app.icon}</div>
+                        <div class="app-name">${app.name}</div>
+                    </div>
+                `;
+            });
+        }
+
+        function renderShelf() {
+            const shelf = document.getElementById('shelf-container');
+            shelf.innerHTML = '';
+            const pinnedApps = installedApps.filter(app => pinnedAppIds.includes(app.id));
+            
+            pinnedApps.forEach(app => {
+                const isActive = activeAppId === app.id;
+                shelf.innerHTML += `
+                    <div class="shelf-icon ${isActive ? 'active' : ''}" style="background: ${app.bg}" onclick="openApp('${app.id}')" title="${app.name}">
+                        ${app.icon}
+                    </div>
+                `;
+            });
+        }
+
+        function renderStore() {
+            const grid = document.getElementById('store-grid');
+            grid.innerHTML = '';
+            storeCatalog.forEach(app => {
+                const isInstalled = installedApps.find(a => a.id === app.id);
+                grid.innerHTML += `
+                    <div class="store-item">
+                        <div class="store-icon" style="background: ${app.bg}">${app.icon}</div>
+                        <div class="store-info">
+                            <div class="store-name">${app.name}</div>
+                            <div style="font-size: 0.8rem; color: #888;">Size: ${Math.floor(Math.random() * 800 + 100)} MB</div>
+                        </div>
+                        <button class="dl-btn" ${isInstalled ? 'disabled' : `onclick="downloadApp('${app.id}', this)"`}>
+                            ${isInstalled ? 'Installed' : 'Get'}
+                        </button>
+                    </div>
+                `;
+            });
+        }
+
+        function renderSettings() {
+            const installedDiv = document.getElementById('set-installed');
+            const uninstalledDiv = document.getElementById('set-uninstalled');
+            
+            installedDiv.innerHTML = installedApps.map(a => `<span class="list-chip">${a.icon} ${a.name}</span>`).join('');
+            
+            const uninstalled = storeCatalog.filter(ca => !installedApps.find(ia => ia.id === ca.id));
+            if(uninstalled.length === 0) {
+                uninstalledDiv.innerHTML = `<span style="color:#888; font-size:0.9rem;">All available apps installed.</span>`;
+            } else {
+                uninstalledDiv.innerHTML = uninstalled.map(a => `<span class="list-chip" style="opacity:0.5">${a.icon} ${a.name}</span>`).join('');
+            }
+        }
+
+        // --- APP ACTIONS ---
+        function togglePin(id) {
+            if (pinnedAppIds.includes(id)) {
+                pinnedAppIds = pinnedAppIds.filter(pid => pid !== id);
+            } else {
+                pinnedAppIds.push(id);
+            }
+            renderDesktop();
+            renderShelf();
+        }
+
+        function downloadApp(id, btnElement) {
+            btnElement.textContent = "Installing...";
+            btnElement.style.background = "#ffaa00";
+            
+            // Simulate network download
+            setTimeout(() => {
+                const appToInstall = storeCatalog.find(a => a.id === id);
+                if(appToInstall && !installedApps.find(a => a.id === id)) {
+                    installedApps.push(appToInstall);
+                    renderDesktop();
+                    renderShelf();
+                    renderStore();
+                }
+            }, 1200);
+        }
+
+        // --- WINDOW MANAGER ---
+        const sysWindow = document.getElementById('system-window');
+        const appFrame = document.getElementById('app-frame');
+        const internalStore = document.getElementById('app-store');
+        const internalSettings = document.getElementById('app-settings');
+        const winTitle = document.getElementById('win-title');
+
+        function openApp(id) {
+            // Guard: If app is already open and active, just bounce it
+            if (activeAppId === id && sysWindow.classList.contains('active')) {
+                sysWindow.style.transform = 'scale(1.02)';
+                setTimeout(() => sysWindow.style.transform = 'scale(1)', 150);
+                return;
+            }
+
+            const app = installedApps.find(a => a.id === id);
+            if(!app) return;
+
+            activeAppId = id;
+            winTitle.innerHTML = `<span style="border-radius:4px; padding: 2px; background:${app.bg}">${app.icon}</span> ${app.name}`;
+            
+            // Reset views
+            appFrame.style.display = 'none';
+            internalStore.classList.remove('active');
+            internalSettings.classList.remove('active');
+
+            if (app.type === 'web') {
+                appFrame.style.display = 'block';
+                // Only reload iframe src if it's actually changing to save bandwidth
+                if(appFrame.src !== app.url) appFrame.src = app.url;
+                
+                if(id === 'party' && !partyStartTime) partyStartTime = Date.now();
+            } else if (app.id === 'store') {
+                renderStore();
+                internalStore.classList.add('active');
+            } else if (app.id === 'settings') {
+                renderSettings();
+                internalSettings.classList.add('active');
+            }
+
+            sysWindow.classList.add('active');
+            renderShelf();
+        }
+
+        function closeWindow() {
+            sysWindow.classList.remove('active');
+            activeAppId = null;
+            appFrame.src = ""; // Kills iframe process
+            renderShelf();
+        }
+
+        function minimizeWindow() {
+            sysWindow.classList.remove('active');
+            // We intentionally don't clear activeAppId or iframe src so it stays "running"
+            renderShelf(); 
+        }
+
+        function toggleFullscreen() {
+            sysWindow.classList.toggle('fullscreen');
+        }
+
+        // --- BOOT SEQUENCE ---
+        let isBooted = false;
+        setTimeout(() => {
+            let p = 0;
+            const bar = document.getElementById('progress-bar');
+            let inv = setInterval(() => {
+                if(isBooted) return clearInterval(inv);
+                p += Math.random() * 15;
+                if(p >= 100) { p = 100; forceBoot(); clearInterval(inv); }
+                if(bar) bar.style.width = p + '%';
+            }, 80);
+        }, 500);
+
+        function forceBoot() {
+            if (isBooted) return;
+            isBooted = true;
+            document.getElementById('startup-screen').style.opacity = '0';
+            document.getElementById('os-container').style.display = 'flex';
+            setTimeout(() => {
+                document.getElementById('startup-screen').style.display = 'none';
+                document.getElementById('os-container').style.opacity = '1';
+                renderDesktop();
+                renderShelf();
+            }, 400);
+        }
+
+        // --- BACKGROUND TRACKERS ---
+        setInterval(() => {
+            // Clock
+            const now = new Date();
+            let h = now.getHours(), m = now.getMinutes();
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            h = h % 12 || 12; m = m < 10 ? '0' + m : m;
+            document.getElementById('os-clock').textContent = `${h}:${m} ${ampm}`;
+
+            // Data simulator (goes up slightly if a web app is running)
+            if (activeAppId && installedApps.find(a => a.id === activeAppId)?.type === 'web') {
+                dataUsageMB += (Math.random() * 0.5);
+            }
+            document.getElementById('set-data').textContent = Math.floor(dataUsageMB) + ' MB';
+
+            // Party Timer
+            if (partyStartTime) {
+                const diff = Math.floor((Date.now() - partyStartTime) / 1000);
+                const mins = Math.floor(diff / 60);
+                const secs = diff % 60;
+                document.getElementById('set-party-time').textContent = `${mins}m ${secs}s`;
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
